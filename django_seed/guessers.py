@@ -5,13 +5,15 @@ try:
     from django.db.models import JSONField
 except ImportError:
     from django.contrib.postgres.fields import JSONField
+from django.contrib.gis.db.models import GeometryField
 from django.conf import settings
 from django.core.validators import validate_comma_separated_integer_list
 from django.utils import timezone
 from django.contrib.postgres.fields import ArrayField
-
+from django.contrib.gis.geos import GeometryCollection, Point, LineString, Polygon, MultiLineString, MultiPoint, MultiPolygon
 import random
 import re
+from string import ascii_lowercase
 
 from .providers import Provider
 
@@ -57,6 +59,7 @@ class NameGuesser(object):
         if name == 'country': return lambda x: faker.country()
         if name == 'title': return lambda x: faker.sentence()
         if name in ('body', 'summary', 'description'): return lambda x: faker.text()
+        if name == "code": return lambda x: faker.bothify('???', letters=ascii_lowercase)
 
 
 class FieldTypeGuesser(object):
@@ -133,6 +136,56 @@ class FieldTypeGuesser(object):
             def json_generator(_, data_columns: list = None, num_rows: int = 10, indent: int = None) -> str:
                 return faker.json(data_columns=data_columns, num_rows=num_rows, indent=indent)
             return json_generator
+
+        if isinstance(field, GeometryField):
+            def make_geom(type):
+                ALL_TYPES = ["POINT", "LINESTRING", "POLYGON", "MULTIPOINT", "MULTILINESTRING", "MULTIPOLYGON"]
+
+                if type == 'POINT':
+                    return Point(x=float(faker.coordinate()), y=float(faker.coordinate()), srid=4326)
+
+                if type == 'LINESTRING':
+                    return LineString(
+                        (float(faker.coordinate()), float(faker.coordinate())),
+                        (float(faker.coordinate()), float(faker.coordinate())),
+                        srid=4326,
+                    )
+
+                if type == 'POLYGON':
+                    return Polygon(
+                        (
+                            (float(faker.coordinate()), float(faker.coordinate())),
+                            (float(faker.coordinate()), float(faker.coordinate())),
+                            (float(faker.coordinate()), float(faker.coordinate())),
+                        ),
+                    )
+
+                if type == 'MULTIPOINT':
+                    return MultiPoint(
+                        [make_geom("POINT"), make_geom("POINT")]
+                    )
+
+                if type == 'MULTILINESTRING':
+                    return MultiLineString(
+                        [make_geom("LINESTRING"), make_geom("LINESTRING")]
+                    )
+
+                if type == 'MULTIPOLYGON':
+                    return MultiPolygon(
+                        [make_geom("POLYGON"), make_geom("POLYGON")]
+                    )
+
+                if type == 'GEOMETRYCOLLECTION':
+                    return GeometryCollection(
+                        [make_geom("GEOMETRY"), make_geom("GEOMETRY")]
+                    )
+
+                if type == 'GEOMETRY':
+                    return make_geom(random.choice(ALL_TYPES))
+
+                raise NotImplementedError(f"Unknown geometry type for field {field} (a {type})")
+
+            return lambda x: make_geom(field.geom_type)
 
         # TODO: This should be fine, but I can't find any models that I can use
         # in a simple test case.
