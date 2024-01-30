@@ -152,11 +152,13 @@ class FieldTypeGuesser(object):
                     )
 
                 if type == 'POLYGON':
+                    first =  (float(faker.coordinate()), float(faker.coordinate()))
                     return Polygon(
                         (
+                            first,
                             (float(faker.coordinate()), float(faker.coordinate())),
                             (float(faker.coordinate()), float(faker.coordinate())),
-                            (float(faker.coordinate()), float(faker.coordinate())),
+                            first,
                         ),
                     )
 
