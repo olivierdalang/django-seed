@@ -137,4 +137,4 @@ class FieldTypeGuesser(object):
         # TODO: This should be fine, but I can't find any models that I can use
         # in a simple test case.
         if hasattr(field, '_default_hint'): return lambda x: field._default_hint[1]
-        raise AttributeError(field)
+        raise NotImplementedError(f"Guesser is not implemented for field {field} (a {field.__class__.__name__})")
